@@ -1,0 +1,10 @@
+{
+    "event": "user.updated",
+    "id": "example123",
+    "object_type": "User",
+    "occurred_at": "2025-06-23T15:00:00Z",
+    "details": {
+      "user_id": 45678,
+      "project_id": 12345
+    }
+  }
