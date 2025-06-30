@@ -1,0 +1,22 @@
+# Ignore virtual environments
+venv/
+clean_env/
+
+# Cursor stuff
+.cursorignore
+
+# Streamlit config
+.streamlit/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Logs and audit files
+/data/activity_logs/
+/data/deactivation_candidates/
+/data/audit_logs/
+
+# Environment configs
+.env

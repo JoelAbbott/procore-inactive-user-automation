@@ -1,5 +1,5 @@
 
-from oauth_manager import OAuthManager
+from deactivation.oauth_manager import OAuthManager
 
 
 if __name__=='__main__':
