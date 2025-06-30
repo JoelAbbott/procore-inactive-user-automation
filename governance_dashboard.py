@@ -1,19 +1,24 @@
+
 import streamlit as st
 import pandas as pd
 import os
 import json
 import glob
-import datetime
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from oauth_manager import OAuthManager
-from audit_logging import log_error
+from audit_logging import log_error, log_audit
 import requests
 import time
-from datetime import datetime, timedelta, timezone
 
 # --- Streamlit Page Config ---
 st.set_page_config(page_title="Procore Governance Dashboard", layout="wide")
+
+# --- Configuration ---
+MAX_PAGE_SIZE = 300  # API limit
+INACTIVE_THRESHOLD_DAYS = 365  # 12 months
+NEVER_LOGGED_IN_THRESHOLD_DAYS = 180  # 6 months
 
 # --- Constants ---
 USERS_CACHE = './data/intermediate/users_cache.json'
@@ -27,13 +32,15 @@ env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
 COMPANY_ID = os.getenv('PROCORE_COMPANY_ID')
 BASE_URL = os.getenv('PROCORE_BASE_URL', 'https://sandbox.procore.com')
-COMPANY_DOMAIN = os.getenv('COMPANY_EMAIL_DOMAIN', 'phase10.com').lower()
+COMPANY_EMAIL_DOMAIN = os.getenv('COMPANY_EMAIL_DOMAIN', 'compassdatacenters.com').lower()
 DMSA_USER_IDS = set(u.strip() for u in os.getenv('DMSA_USER_IDS', '').split(',') if u.strip())
 
+# Ensure reports directory exists
 os.makedirs('./data/reports', exist_ok=True)
 
 # --- Helper Functions ---
 def get_latest_file(pattern):
+    """Get the most recent file matching the pattern."""
     files = glob.glob(pattern)
     if not files:
         return None, []
@@ -41,24 +48,39 @@ def get_latest_file(pattern):
     return files[0], files
 
 def load_json_file(path):
+    """Safely load a JSON file."""
+    if not path or not os.path.exists(path):
+        st.error(f"File not found: {path}")
+        return []
+    
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
+            return data if isinstance(data, list) else [data] if data else []
+    except json.JSONDecodeError as e:
+        st.error(f"Invalid JSON in file {path}: {e}")
+        return []
     except Exception as e:
-        st.error(f"Failed to load JSON file: {e}")
+        st.error(f"Failed to load JSON file {path}: {e}")
         return []
 
 def load_csv_file(path):
+    """Safely load a CSV file."""
+    if not path or not os.path.exists(path):
+        st.warning(f"CSV file not found: {path}")
+        return pd.DataFrame(columns=["user_id", "last_active"])
+    
     try:
         df = pd.read_csv(path)
         if df.empty or len(df.columns) == 0:
             return pd.DataFrame(columns=["user_id", "last_active"])
         return df
     except Exception as e:
-        st.error(f"Failed to load CSV file: {e}")
+        st.error(f"Failed to load CSV file {path}: {e}")
         return pd.DataFrame(columns=["user_id", "last_active"])
 
 def summary_card(label, value, color, icon=None):
+    """Create a summary card widget."""
     style = f"""
         background: #fff;
         box-shadow: 0 2px 8px rgba(0,0,0,0.07);
@@ -81,11 +103,17 @@ def summary_card(label, value, color, icon=None):
     """, unsafe_allow_html=True)
 
 def api_get_with_retry(url, headers, params=None, max_retries=3, context=None):
+    """API GET with retry logic and proper error handling."""
     for attempt in range(1, max_retries + 1):
         try:
-            resp = requests.get(url, headers=headers, params=params, timeout=10)
+            resp = requests.get(url, headers=headers, params=params, timeout=30)
             if resp.status_code == 200:
                 return resp.json()
+            elif resp.status_code == 400 and "max page size" in resp.text.lower():
+                # Handle page size errors gracefully
+                st.error(f"API Error: {resp.text}")
+                log_error(MODULE, Exception(f"HTTP 400: {resp.text}"), context or url)
+                return None
             else:
                 raise Exception(f"HTTP {resp.status_code}: {resp.text}")
         except Exception as e:
@@ -96,107 +124,189 @@ def api_get_with_retry(url, headers, params=None, max_retries=3, context=None):
             time.sleep(sleep_time)
 
 def load_or_fetch_users(headers):
+    """Load users from cache or fetch from API with proper pagination."""
     if os.path.exists(USERS_CACHE):
         try:
             with open(USERS_CACHE, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
             log_error(MODULE, e, "Loading users_cache.json")
+    
     users_cache = {}
     try:
         url = f"{BASE_URL}/rest/v1.0/users"
-        params = {'company_id': COMPANY_ID, 'per_page': 1000, 'page': 1}
+        params = {'company_id': COMPANY_ID, 'per_page': MAX_PAGE_SIZE, 'page': 1}
         all_users = []
-        while True:
-            data = api_get_with_retry(url, headers, params, context="GET /users bulk")
-            if isinstance(data, dict) and 'users' in data:
-                users = data['users']
-            else:
-                users = data
-            if not users:
-                break
-            all_users.extend(users)
-            if len(users) < 1000:
-                break
-            params['page'] += 1
+        
+        with st.spinner("Fetching users from API..."):
+            while True:
+                data = api_get_with_retry(url, headers, params, context="GET /users bulk")
+                if not data:
+                    break
+                    
+                # Handle different response formats
+                if isinstance(data, dict) and 'users' in data:
+                    users = data['users']
+                else:
+                    users = data if isinstance(data, list) else []
+                
+                if not users:
+                    break
+                    
+                all_users.extend(users)
+                
+                # Check if we got fewer results than requested (last page)
+                if len(users) < MAX_PAGE_SIZE:
+                    break
+                    
+                params['page'] += 1
+                
+                # Safety check
+                if params['page'] > 1000:
+                    st.error("Too many pages while fetching users")
+                    break
+        
+        # Build cache dictionary
         for user in all_users:
             users_cache[str(user.get('id'))] = user
+        
+        # Save cache
         with open(USERS_CACHE, 'w', encoding='utf-8') as f:
-            json.dump(users_cache, f)
+            json.dump(users_cache, f, indent=2)
+            
     except Exception as e:
         log_error(MODULE, e, "Fetching users metadata")
+        st.error(f"Failed to fetch users: {e}")
+    
     return users_cache
 
 def load_or_fetch_projects(headers):
+    """Load projects from cache or fetch from API with proper pagination."""
     if os.path.exists(PROJECTS_CACHE):
         try:
             with open(PROJECTS_CACHE, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
             log_error(MODULE, e, "Loading projects_cache.json")
+    
     projects_cache = {}
     try:
         url = f"{BASE_URL}/rest/v1.1/projects"
-        params = {'company_id': COMPANY_ID, 'per_page': 1000, 'page': 1}
+        params = {'company_id': COMPANY_ID, 'per_page': MAX_PAGE_SIZE, 'page': 1}
         all_projects = []
-        while True:
-            data = api_get_with_retry(url, headers, params, context="GET /projects bulk")
-            if isinstance(data, dict) and 'projects' in data:
-                projects = data['projects']
-            else:
-                projects = data
-            if not projects:
-                break
-            all_projects.extend(projects)
-            if len(projects) < 1000:
-                break
-            params['page'] += 1
+        
+        with st.spinner("Fetching projects from API..."):
+            while True:
+                data = api_get_with_retry(url, headers, params, context="GET /projects bulk")
+                if not data:
+                    break
+                    
+                # Handle different response formats
+                if isinstance(data, dict) and 'projects' in data:
+                    projects = data['projects']
+                else:
+                    projects = data if isinstance(data, list) else []
+                
+                if not projects:
+                    break
+                    
+                all_projects.extend(projects)
+                
+                # Check if we got fewer results than requested (last page)
+                if len(projects) < MAX_PAGE_SIZE:
+                    break
+                    
+                params['page'] += 1
+                
+                # Safety check
+                if params['page'] > 1000:
+                    st.error("Too many pages while fetching projects")
+                    break
+        
+        # Build cache dictionary
         for project in all_projects:
             projects_cache[str(project.get('id'))] = project
+        
+        # Save cache
         with open(PROJECTS_CACHE, 'w', encoding='utf-8') as f:
-            json.dump(projects_cache, f)
+            json.dump(projects_cache, f, indent=2)
+            
     except Exception as e:
         log_error(MODULE, e, "Fetching projects metadata")
+        st.error(f"Failed to fetch projects: {e}")
+    
     return projects_cache
 
 def get_latest_project_ids():
-    # Find the most recent activity log file(s)
+    """Find the most recent project_id for each user from activity logs."""
     latest_project_ids = {}
     try:
         if not os.path.exists(ACTIVITY_LOGS_DIR):
             return latest_project_ids
+            
         all_files = []
         for fname in os.listdir(ACTIVITY_LOGS_DIR):
             if fname.startswith('activity_log_') and fname.endswith('.json'):
                 all_files.append(os.path.join(ACTIVITY_LOGS_DIR, fname))
+        
         if not all_files:
             return latest_project_ids
+        
         # Sort by date in filename descending
         all_files.sort(reverse=True)
+        
         for file_path in all_files:
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     events = json.load(f)
                     if isinstance(events, dict):
                         events = [events]
+                    
                     for event in events:
                         user_id = str(event.get('user_id', ''))
                         project_id = str(event.get('project_id', '')) if event.get('project_id') else ''
+                        
                         if user_id and project_id and user_id not in latest_project_ids:
                             latest_project_ids[user_id] = project_id
+                            
             except Exception as e:
                 log_error(MODULE, e, f"Reading {file_path}")
+                
         return latest_project_ids
+        
     except Exception as e:
         log_error(MODULE, e, "Finding latest project_id per user")
         return latest_project_ids
 
 def is_non_company_email(email):
+    """Check if email is from outside the company domain."""
     if not isinstance(email, str) or '@' not in email:
         return False
-    return not email.lower().endswith(f"@{COMPANY_DOMAIN}")
+    return not email.lower().endswith(f"@{COMPANY_EMAIL_DOMAIN}")
 
-def main():
+def parse_timestamp_safe(timestamp_str):
+    """Safely parse timestamp to timezone-aware datetime."""
+    if pd.isna(timestamp_str) or timestamp_str == '':
+        return None
+    try:
+        # Parse as UTC if no timezone info
+        parsed = pd.to_datetime(timestamp_str, utc=True)
+        return parsed
+    except Exception:
+        try:
+            # Fallback: parse as naive then localize to UTC
+            parsed = pd.to_datetime(timestamp_str)
+            if parsed.tz is None:
+                parsed = parsed.tz_localize('UTC')
+            else:
+                parsed = parsed.tz_convert('UTC')
+            return parsed
+        except Exception as e:
+            log_error(MODULE, e, f"Parsing timestamp: {timestamp_str}")
+            return None
+
+def generate_never_logged_in_report():
+    """Generate report of users who never logged in."""
     try:
         oauth = OAuthManager()
         token = oauth.get_access_token()
@@ -204,25 +314,38 @@ def main():
             'Authorization': f'Bearer {token}',
             'Accept': 'application/json'
         }
+        
         users_cache = load_or_fetch_users(headers)
-        six_months_ago = datetime.now(timezone.utc) - timedelta(days=6*30)
+        
+        # Use timezone-aware datetime - FIXED
+        threshold_date = datetime.now(timezone.utc) - timedelta(days=NEVER_LOGGED_IN_THRESHOLD_DAYS)
+        
         rows = []
         for user_id, user in users_cache.items():
             if user_id in DMSA_USER_IDS:
                 continue
-            last_login = user.get('last_login')
+            
+            last_login = user.get('last_login_at')
             created_at = user.get('created_at')
-            # If no last_login or null, and created_at > 6 months ago
+            
+            # If no last_login or null, and created_at > threshold
             if last_login not in [None, '', 'null']:
                 continue
+            
             if not created_at:
                 continue
+            
             try:
-                created_at_dt = pd.to_datetime(created_at, utc=True)
+                created_at_dt = parse_timestamp_safe(created_at)
+                if not created_at_dt:
+                    continue
+                    
             except Exception:
                 continue
-            if created_at_dt > six_months_ago:
+            
+            if created_at_dt > threshold_date:
                 continue
+            
             row = {
                 'first_name': user.get('first_name', ''),
                 'last_name': user.get('last_name', ''),
@@ -232,14 +355,18 @@ def main():
                 'status': 'Never Logged In'
             }
             rows.append(row)
+        
         df = pd.DataFrame(rows, columns=[
             'first_name', 'last_name', 'email_address', 'vendor_name', 'created_at', 'status'
         ])
+        
         df.to_csv(REPORT_CSV, index=False)
-        print(f"✅ Never-logged-in user report written to {REPORT_CSV}")
+        log_audit(MODULE, "Never Logged In Report Generated", record_count=len(df))
+        return True, len(df)
+        
     except Exception as e:
-        log_error(MODULE, e, "main")
-        print(f"❌ Failed to generate never-logged-in user report: {e}")
+        log_error(MODULE, e, "generate_never_logged_in_report")
+        return False, 0
 
 # --- Data File Discovery ---
 activity_log_pattern = './data/activity_logs/activity_log_*.json'
@@ -258,7 +385,7 @@ audit_events = load_json_file(latest_audit_log) if latest_audit_log else []
 
 # --- Summary Metrics ---
 total_events = len(activity_events)
-unique_users = len(set(e['user_id'] for e in activity_events)) if activity_events else 0
+unique_users = len(set(e.get('user_id') for e in activity_events if e.get('user_id'))) if activity_events else 0
 total_inactive = len(inactive_users_df) if not inactive_users_df.empty else 0
 total_deactivations = len(audit_events)
 
@@ -282,7 +409,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 st.markdown('---')
 
 # --- Tabs Navigation ---
-tabs = st.tabs(["Activity Logs", "Inactive Users", "Audit Logs", "Non-Company Email Users"])
+tabs = st.tabs(["Activity Logs", "Inactive Users", "Audit Logs", "Non-Company Email Users", "Generate Reports"])
 
 # --- Activity Logs Tab ---
 with tabs[0]:
@@ -298,12 +425,19 @@ with tabs[0]:
             df = pd.DataFrame(events)
             st.dataframe(df, use_container_width=True)
             st.markdown('---')
-            if 'object_type' in df.columns:
-                obj_counts = df['object_type'].value_counts().reset_index()
-                obj_counts.columns = ['Object Type', 'Count']
-                st.bar_chart(obj_counts.set_index('Object Type'))
-            if 'user_id' in df.columns:
-                st.markdown(f"**Distinct Active Users:** {df['user_id'].nunique()}")
+            
+            # Analytics
+            col1, col2 = st.columns(2)
+            with col1:
+                if 'object_type' in df.columns:
+                    obj_counts = df['object_type'].value_counts().reset_index()
+                    obj_counts.columns = ['Object Type', 'Count']
+                    st.bar_chart(obj_counts.set_index('Object Type'))
+            
+            with col2:
+                if 'user_id' in df.columns:
+                    st.metric("Distinct Active Users", df['user_id'].nunique())
+                    st.metric("Total Events", len(df))
 
 # --- Inactive Users Tab ---
 with tabs[1]:
@@ -318,13 +452,18 @@ with tabs[1]:
         else:
             def highlight_row(row):
                 try:
-                    last_active = pd.to_datetime(row['last_active'])
-                    if last_active < datetime.datetime.now() - datetime.timedelta(days=365):
-                        return ['background-color: #ffe6e6; color: #b30000'] * len(row)
-                    else:
-                        return ['background-color: #e6ffe6; color: #006600'] * len(row)
+                    if 'last_active' in row and row['last_active']:
+                        last_active = parse_timestamp_safe(row['last_active'])
+                        if last_active:
+                            threshold = datetime.now(timezone.utc) - timedelta(days=INACTIVE_THRESHOLD_DAYS)
+                            if last_active < threshold:
+                                return ['background-color: #ffe6e6; color: #b30000'] * len(row)
+                            else:
+                                return ['background-color: #e6ffe6; color: #006600'] * len(row)
                 except:
-                    return [''] * len(row)
+                    pass
+                return [''] * len(row)
+            
             st.dataframe(df.style.apply(highlight_row, axis=1), use_container_width=True)
             st.download_button("Export to CSV", df.to_csv(index=False), file_name="inactive_users_export.csv")
 
@@ -350,14 +489,38 @@ with tabs[3]:
         non_company_df = load_csv_file(non_company_email_users_path)
     except Exception:
         non_company_df = pd.DataFrame(columns=["user_id", "first_name", "last_name", "email_address", "vendor_name", "project_name", "last_active"])
+    
     if non_company_df is None or non_company_df.empty:
         st.warning("No non-company email users found or report file is missing.")
     else:
         st.dataframe(non_company_df, use_container_width=True)
         st.download_button("Export to CSV", non_company_df.to_csv(index=False), file_name="non_company_users_export.csv")
 
-st.markdown('---')
-st.caption("Compass Governance Dashboard • Phase10 Inactive User Automation • For audit and compliance use only.")
+# --- Generate Reports Tab ---
+with tabs[4]:
+    st.header("Generate Reports")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Never Logged In Users Report")
+        st.write(f"Generate report for users created more than {NEVER_LOGGED_IN_THRESHOLD_DAYS} days ago who never logged in.")
+        
+        if st.button("Generate Never Logged In Report"):
+            with st.spinner("Generating report..."):
+                success, count = generate_never_logged_in_report()
+                if success:
+                    st.success(f"✅ Report generated successfully! Found {count} users who never logged in.")
+                else:
+                    st.error("❌ Failed to generate report. Check logs for details.")
+    
+    with col2:
+        st.subheader("Configuration")
+        st.write("Current settings:")
+        st.write(f"- Company Domain: `{COMPANY_EMAIL_DOMAIN}`")
+        st.write(f"- Inactive Threshold: `{INACTIVE_THRESHOLD_DAYS} days`")
+        st.write(f"- Never Logged In Threshold: `{NEVER_LOGGED_IN_THRESHOLD_DAYS} days`")
+        st.write(f"- API Page Size: `{MAX_PAGE_SIZE}`")
 
-if __name__ == "__main__":
-    main() 
+st.markdown('---')
+st.caption("Compass Governance Dashboard • Procore Inactive User Automation • For audit and compliance use only.")
