@@ -1,4 +1,3 @@
-
 import os
 import csv
 import time
@@ -231,7 +230,7 @@ class UserDeactivationPipeline:
             raise
 
     def fetch_users_metadata(self, headers: Dict[str, str]) -> Dict[str, Any]:
-        """Load users metadata from cache or return empty dict."""
+        """Load users metadata from cache or fetch and flatten from API if missing."""
         if USERS_CACHE.exists():
             try:
                 with open(USERS_CACHE, 'r', encoding='utf-8') as f:
@@ -241,11 +240,45 @@ class UserDeactivationPipeline:
             except Exception as e:
                 log_error(self.module, e, f'Loading {USERS_CACHE}')
         
-        logger.warning(f"Users cache not found at {USERS_CACHE}")
-        return {}
+        # If cache is missing, fetch from API and flatten
+        logger.info("Fetching all users from Procore API for cache...")
+        users_data = {}
+        session = requests.Session()
+        page = 1
+        while True:
+            url = f"{PROCORE_BASE_URL}/rest/v1.1/users?company_id={self.company_id}&page={page}&per_page={MAX_PAGE_SIZE}"
+            try:
+                resp = session.get(url, headers=headers, timeout=30)
+                resp.raise_for_status()
+                current_users = resp.json()
+                if not current_users:
+                    break
+                for user in current_users:
+                    users_data[str(user.get('id'))] = {
+                        'first_name': user.get('first_name', ''),
+                        'last_name': user.get('last_name', ''),
+                        'email_address': user.get('email_address', ''),
+                        'vendor_name': user.get('vendor', {}).get('name', '') if user.get('vendor') else '',
+                        'created_at': user.get('created_at', ''),
+                    }
+                logger.info(f"Fetched page {page} with {len(current_users)} users. Total: {len(users_data)}")
+                if len(current_users) < MAX_PAGE_SIZE:
+                    break
+                page += 1
+                time.sleep(0.1)
+            except Exception as e:
+                log_error(self.module, e, f"Error fetching users metadata (page {page})")
+                break
+        try:
+            with open(USERS_CACHE, 'w', encoding='utf-8') as f:
+                json.dump(users_data, f, ensure_ascii=False, indent=2)
+            log_audit(self.module, "Users Cache Built from API", record_count=len(users_data))
+        except Exception as e:
+            log_error(self.module, e, f"Saving {USERS_CACHE}")
+        return users_data
 
     def fetch_projects_metadata(self, headers: Dict[str, str]) -> Dict[str, Any]:
-        """Load projects metadata from cache or return empty dict."""
+        """Load projects metadata from cache or fetch and flatten from API if missing."""
         if PROJECTS_CACHE.exists():
             try:
                 with open(PROJECTS_CACHE, 'r', encoding='utf-8') as f:
@@ -255,8 +288,38 @@ class UserDeactivationPipeline:
             except Exception as e:
                 log_error(self.module, e, f'Loading {PROJECTS_CACHE}')
         
-        logger.warning(f"Projects cache not found at {PROJECTS_CACHE}")
-        return {}
+        # If cache is missing, fetch from API and flatten
+        logger.info("Fetching all projects from Procore API for cache...")
+        projects_data = {}
+        session = requests.Session()
+        page = 1
+        while True:
+            url = f"{PROCORE_BASE_URL}/rest/v1.0/projects?company_id={self.company_id}&page={page}&per_page={MAX_PAGE_SIZE}"
+            try:
+                resp = session.get(url, headers=headers, timeout=30)
+                resp.raise_for_status()
+                current_projects = resp.json()
+                if not current_projects:
+                    break
+                for project in current_projects:
+                    projects_data[str(project.get('id'))] = {
+                        'name': project.get('name', ''),
+                    }
+                logger.info(f"Fetched page {page} with {len(current_projects)} projects. Total: {len(projects_data)}")
+                if len(current_projects) < MAX_PAGE_SIZE:
+                    break
+                page += 1
+                time.sleep(0.1)
+            except Exception as e:
+                log_error(self.module, e, f"Error fetching projects metadata (page {page})")
+                break
+        try:
+            with open(PROJECTS_CACHE, 'w', encoding='utf-8') as f:
+                json.dump(projects_data, f, ensure_ascii=False, indent=2)
+            log_audit(self.module, "Projects Cache Built from API", record_count=len(projects_data))
+        except Exception as e:
+            log_error(self.module, e, f"Saving {PROJECTS_CACHE}")
+        return projects_data
 
     def run_deactivation_pipeline(self):
         """Main deactivation pipeline with enhanced error handling and logging."""
