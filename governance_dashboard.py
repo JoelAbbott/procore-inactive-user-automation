@@ -125,7 +125,6 @@ def compare_ids(df, cache_df, id_col, cache_name):
 activity_log_pattern = './data/activity_logs/activity_log_*.json'
 inactive_users_pattern = './data/deactivation_candidates/inactive_users_*.csv'
 audit_log_pattern = './data/audit_logs/deactivation_audit_*.json'
-non_company_email_users_path = './data/reports/non_company_email_users_report.csv'
 deactivated_users_path = './data/deactivation_logs/*/deactivation_log.csv'
 never_logged_in_path = './data/reports/never_logged_in_users_report.csv'
 
@@ -152,8 +151,7 @@ tabs = st.tabs([
     "Activity Overview",
     "Inactive Users",
     "Never Logged In",
-    "Deactivated Users",
-    "Non-Company Email Users"
+    "Deactivated Users"
 ])
 
 # --- Activity Overview Tab ---
@@ -277,34 +275,6 @@ with tabs[3]:
             st.dataframe(df[display_cols], use_container_width=True)
             st.download_button("Export to CSV", df[display_cols].to_csv(index=False), file_name="deactivated_users_export.csv")
             log_audit('governance_dashboard', 'Loaded Deactivated Users', record_count=len(df))
-
-# --- Non-Company Email Users Tab ---
-with tabs[4]:
-    st.header("Non-Company Email Users")
-    if DRY_RUN_MODE:
-        st.info("DRY_RUN_MODE is enabled. Deactivation of non-company email users requires manual approval.")
-    try:
-        non_company_df = load_csv_file(non_company_email_users_path)
-        non_company_df = enrich_with_user_project_vendor(non_company_df)
-    except Exception:
-        non_company_df = pd.DataFrame(columns=["first_name", "last_name", "email_address", "vendor_name", "project_name", "last_active"])
-    missing_users = compare_ids(non_company_df, users_cache_df, 'user_id', 'users_cache')
-    if missing_users:
-        st.warning(f"{len(missing_users)} user_id(s) in non-company email users not found in users_cache: {missing_users[:10]}{'...' if len(missing_users) > 10 else ''}")
-    if 'project_id' in non_company_df.columns:
-        missing_projects = compare_ids(non_company_df, projects_cache_df, 'project_id', 'projects_cache')
-        if missing_projects:
-            st.warning(f"{len(missing_projects)} project_id(s) in non-company email users not found in projects_cache: {missing_projects[:10]}{'...' if len(missing_projects) > 10 else ''}")
-    display_cols = ["first_name", "last_name", "email_address", "vendor_name", "project_name", "last_active"]
-    for col in display_cols:
-        if col not in non_company_df.columns:
-            non_company_df[col] = ''
-    if non_company_df is None or non_company_df.empty:
-        st.warning("No non-company email users found or report file is missing.")
-    else:
-        st.dataframe(non_company_df[display_cols], use_container_width=True)
-        st.download_button("Export to CSV", non_company_df[display_cols].to_csv(index=False), file_name="non_company_users_export.csv")
-        log_audit('governance_dashboard', 'Loaded Non-Company Email Users', record_count=len(non_company_df))
 
 st.markdown('---')
 st.caption("Compass Governance Dashboard • Phase10 Inactive User Automation • For audit and compliance use only.")

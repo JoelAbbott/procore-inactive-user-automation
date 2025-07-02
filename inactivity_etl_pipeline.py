@@ -382,12 +382,14 @@ def write_inactive_users_csv(inactive_users_df: pd.DataFrame, projects_cache: di
         lambda x: string_keyed_projects_cache.get(str(x), {}).get('name', 'N/A') if pd.notna(x) else 'N/A'
     )
     
+    # Add 'project_id' column for downstream enrichment
+    inactive_users_with_project['project_id'] = inactive_users_with_project['last_project_id']
+
     # Define final columns for the CSV output
     final_cols = [
         'user_id', 'first_name', 'last_name', 'email_address', 'status',
-        'inactivity_days', 'last_activity_date', 'last_project_name', 'created_at'
+        'inactivity_days', 'last_activity_date', 'project_id', 'last_project_name', 'created_at'
     ]
-    
     # Filter to only include columns that actually exist in the DataFrame
     final_cols_filtered = [col for col in final_cols if col in inactive_users_with_project.columns]
     output_df = inactive_users_with_project[final_cols_filtered]
@@ -445,7 +447,7 @@ if __name__ == "__main__":
         
         log_audit(MODULE, "ETL Pipeline Completed Successfully", 
                  record_count=len(inactive_users))
-        print(f"✅ Inactive users report generated and written to {OUTPUT_CSV}")
+        print(f"Inactive users report generated and written to {OUTPUT_CSV}")
         
     except Exception as e:
         log_error(MODULE, e, "Main ETL Pipeline Execution Failed")

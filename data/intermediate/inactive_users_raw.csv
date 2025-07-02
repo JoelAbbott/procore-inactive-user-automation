@@ -1,3 +1,2 @@
-user_id,first_name,last_name,email_address,status,inactivity_days,last_activity_date,last_project_name,created_at
-47,Test,Subcontractor,sandbox+sub@procore.com,Never Logged In,,,N/A,2021-03-08 00:35:05+00:00
-48,Test,Architect,sandbox+arch@procore.com,Never Logged In,,,N/A,2021-03-08 00:35:09+00:00
+user_id,first_name,last_name,email_address,status,inactivity_days,last_activity_date,project_id,last_project_name,created_at
+48,Test,Architect,sandbox+arch@procore.com,Never Logged In,,,,N/A,2021-03-08 00:35:09+00:00

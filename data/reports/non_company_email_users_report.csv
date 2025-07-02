@@ -1,0 +1,6 @@
+user_id,first_name,last_name,email_address,vendor_name,created_at,last_active
+46,API,Support,sandbox+demo@procore.com,Procore (Test Companies),2021-03-08T00:20:38Z,
+47,Test,Subcontractor,sandbox+sub@procore.com,Subcontracting TEST Company,2021-03-08T00:35:05Z,
+48,Test,Architect,sandbox+arch@procore.com,Architect TEST Company,2021-03-08T00:35:09Z,
+151870,,rfi-pulls-4ef586a6,rfi-pulls-4ef586a6@procore.com,,2025-06-24T12:52:16Z,
+151181,PythonTest01,testing,exampletest3@gmail.com,,2025-06-26T13:08:55Z,
