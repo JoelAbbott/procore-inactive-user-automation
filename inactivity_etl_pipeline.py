@@ -262,10 +262,8 @@ def identify_inactive_users(activity_df: pd.DataFrame, users_cache: dict) -> pd.
 
     # Get all users from cache
     all_users_df = pd.DataFrame.from_dict(string_keyed_users_cache, orient='index')
-    # Ensure the 'id' column in all_users_df is also string type for merging
-    if 'id' in all_users_df.columns:
-        all_users_df['id'] = all_users_df['id'].astype(str)
-    all_users_df.rename(columns={'id': 'user_id'}, inplace=True) # Rename 'id' to 'user_id' for merging
+    all_users_df.index.name = 'user_id'
+    all_users_df.reset_index(inplace=True)
 
     # Merge with user metadata to get creation date and status
     # Use 'left' merge to keep all users from the cache, even if they have no activity

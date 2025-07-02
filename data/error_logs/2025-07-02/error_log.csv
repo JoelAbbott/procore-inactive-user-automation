@@ -18,3 +18,4 @@ timestamp,module,error_type,error_message,context
 2025-07-02 15:34:00 UTC,governance_dashboard,FileNotFoundError,[Errno 2] No such file or directory: './data/reports/non_company_email_users_report.csv',Loading ./data/reports/non_company_email_users_report.csv
 2025-07-02 15:44:10 UTC,inactivity_etl_pipeline,KeyError,'user_id',Main ETL Pipeline Execution Failed
 2025-07-02 15:45:03 UTC,governance_dashboard,FileNotFoundError,[Errno 2] No such file or directory: './data/reports/non_company_email_users_report.csv',Loading ./data/reports/non_company_email_users_report.csv
+2025-07-02 18:41:43 UTC,inactivity_etl_pipeline,KeyError,'user_id',Main ETL Pipeline Execution Failed
