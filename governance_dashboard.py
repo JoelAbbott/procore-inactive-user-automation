@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import os
@@ -389,6 +388,67 @@ unique_users = len(set(e.get('user_id') for e in activity_events if e.get('user_
 total_inactive = len(inactive_users_df) if not inactive_users_df.empty else 0
 total_deactivations = len(audit_events)
 
+# --- Load User and Project Caches ---
+def load_cache_df(cache_path, index_col):
+    try:
+        with open(cache_path, 'r', encoding='utf-8') as f:
+            cache = json.load(f)
+        df = pd.DataFrame.from_dict(cache, orient='index')
+        df.index.name = index_col
+        # Ensure index stays as strings to prevent merge issues
+        df.index = df.index.astype(str)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+users_cache_path = './data/intermediate/users_cache.json'
+projects_cache_path = './data/intermediate/projects_cache.json'
+users_cache_df = load_cache_df(users_cache_path, 'user_id')
+projects_cache_df = load_cache_df(projects_cache_path, 'project_id')
+
+# --- Helper: Enrich DataFrame with User/Project Info ---
+def enrich_with_user_project(df):
+    try:
+        if not df.empty and 'user_id' in df.columns and not users_cache_df.empty:
+            # Convert user_id to string for safe merging
+            df['user_id'] = df['user_id'].astype(str)
+            df = df.merge(
+                users_cache_df[['first_name', 'last_name', 'email_address']], 
+                left_on='user_id', 
+                right_index=True, 
+                how='left'
+            )
+        
+        if not df.empty and 'project_id' in df.columns and not projects_cache_df.empty:
+            # Convert project_id to string for safe merging
+            df['project_id'] = df['project_id'].astype(str)
+            df = df.merge(
+                projects_cache_df[['name']].rename(columns={'name': 'project_name'}), 
+                left_on='project_id', 
+                right_index=True, 
+                how='left'
+            )
+        elif not df.empty:
+            # If no project_id column exists, add empty project_name
+            df['project_name'] = ''
+        
+        # Fill NaN values with empty strings for display
+        df = df.fillna('')
+        return df
+    except Exception as e:
+        st.error(f"Error enriching data: {e}")
+        # Return original DataFrame with empty columns if enrichment fails
+        if not df.empty:
+            if 'first_name' not in df.columns:
+                df['first_name'] = ''
+            if 'last_name' not in df.columns:
+                df['last_name'] = ''
+            if 'email_address' not in df.columns:
+                df['email_address'] = ''
+            if 'project_name' not in df.columns:
+                df['project_name'] = ''
+        return df
+
 # --- Dashboard Layout ---
 st.title("Procore Governance Dashboard")
 st.markdown("""
@@ -423,21 +483,22 @@ with tabs[0]:
             st.warning("No events found in selected log.")
         else:
             df = pd.DataFrame(events)
-            st.dataframe(df, use_container_width=True)
+            df = enrich_with_user_project(df)
+            display_cols = [
+                'first_name', 'last_name', 'email_address', 'project_name',
+                'event_type', 'object_type', 'occurred_at'
+            ]
+            for col in display_cols:
+                if col not in df.columns:
+                    df[col] = ''
+            st.dataframe(df[display_cols], use_container_width=True)
             st.markdown('---')
-            
-            # Analytics
-            col1, col2 = st.columns(2)
-            with col1:
-                if 'object_type' in df.columns:
-                    obj_counts = df['object_type'].value_counts().reset_index()
-                    obj_counts.columns = ['Object Type', 'Count']
-                    st.bar_chart(obj_counts.set_index('Object Type'))
-            
-            with col2:
-                if 'user_id' in df.columns:
-                    st.metric("Distinct Active Users", df['user_id'].nunique())
-                    st.metric("Total Events", len(df))
+            if 'object_type' in df.columns:
+                obj_counts = df['object_type'].value_counts().reset_index()
+                obj_counts.columns = ['Object Type', 'Count']
+                st.bar_chart(obj_counts.set_index('Object Type'))
+            if 'user_id' in df.columns:
+                st.markdown(f"**Distinct Active Users:** {df['user_id'].nunique()}")
 
 # --- Inactive Users Tab ---
 with tabs[1]:
@@ -447,25 +508,27 @@ with tabs[1]:
     else:
         selected_csv = st.selectbox("Select Inactive Users File", inactive_users_files, index=0, format_func=lambda x: os.path.basename(x))
         df = load_csv_file(selected_csv)
+        df = enrich_with_user_project(df)
+        display_cols = [
+            'first_name', 'last_name', 'email_address', 'project_name', 'last_active'
+        ]
+        for col in display_cols:
+            if col not in df.columns:
+                df[col] = ''
         if df.empty:
             st.warning("No inactive users in selected file.")
         else:
             def highlight_row(row):
                 try:
-                    if 'last_active' in row and row['last_active']:
-                        last_active = parse_timestamp_safe(row['last_active'])
-                        if last_active:
-                            threshold = datetime.now(timezone.utc) - timedelta(days=INACTIVE_THRESHOLD_DAYS)
-                            if last_active < threshold:
-                                return ['background-color: #ffe6e6; color: #b30000'] * len(row)
-                            else:
-                                return ['background-color: #e6ffe6; color: #006600'] * len(row)
+                    last_active = pd.to_datetime(row['last_active'])
+                    if last_active < datetime.now() - timedelta(days=365):
+                        return ['background-color: #ffe6e6; color: #b30000'] * len(row)
+                    else:
+                        return ['background-color: #e6ffe6; color: #006600'] * len(row)
                 except:
-                    pass
-                return [''] * len(row)
-            
-            st.dataframe(df.style.apply(highlight_row, axis=1), use_container_width=True)
-            st.download_button("Export to CSV", df.to_csv(index=False), file_name="inactive_users_export.csv")
+                    return [''] * len(row)
+            st.dataframe(df[display_cols].style.apply(highlight_row, axis=1), use_container_width=True)
+            st.download_button("Export to CSV", df[display_cols].to_csv(index=False), file_name="inactive_users_export.csv")
 
 # --- Audit Logs Tab ---
 with tabs[2]:
@@ -479,22 +542,34 @@ with tabs[2]:
             st.warning("No audit events in selected file.")
         else:
             df = pd.DataFrame(events)
-            st.dataframe(df, use_container_width=True)
-            st.download_button("Export to CSV", df.to_csv(index=False), file_name="deactivation_audit_export.csv")
+            df = enrich_with_user_project(df)
+            display_cols = [
+                'first_name', 'last_name', 'email_address', 'project_name',
+                'timestamp', 'action', 'patch_url'
+            ]
+            for col in display_cols:
+                if col not in df.columns:
+                    df[col] = ''
+            st.dataframe(df[display_cols], use_container_width=True)
+            st.download_button("Export to CSV", df[display_cols].to_csv(index=False), file_name="deactivation_audit_export.csv")
 
 # --- Non-Company Email Users Tab ---
 with tabs[3]:
     st.header("Non-Company Email Users")
     try:
         non_company_df = load_csv_file(non_company_email_users_path)
+        non_company_df = enrich_with_user_project(non_company_df)
     except Exception:
-        non_company_df = pd.DataFrame(columns=["user_id", "first_name", "last_name", "email_address", "vendor_name", "project_name", "last_active"])
-    
+        non_company_df = pd.DataFrame(columns=["first_name", "last_name", "email_address", "vendor_name", "project_name", "last_active"])
+    display_cols = ["first_name", "last_name", "email_address", "vendor_name", "project_name", "last_active"]
+    for col in display_cols:
+        if col not in non_company_df.columns:
+            non_company_df[col] = ''
     if non_company_df is None or non_company_df.empty:
         st.warning("No non-company email users found or report file is missing.")
     else:
-        st.dataframe(non_company_df, use_container_width=True)
-        st.download_button("Export to CSV", non_company_df.to_csv(index=False), file_name="non_company_users_export.csv")
+        st.dataframe(non_company_df[display_cols], use_container_width=True)
+        st.download_button("Export to CSV", non_company_df[display_cols].to_csv(index=False), file_name="non_company_users_export.csv")
 
 # --- Generate Reports Tab ---
 with tabs[4]:

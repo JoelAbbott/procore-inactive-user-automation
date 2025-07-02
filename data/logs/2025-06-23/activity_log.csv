@@ -1,0 +1,7 @@
+event_id,timestamp,event_type,resource_name,user_id,project_id,source_user_id,source_project_id
+evt_001,2023-01-15T10:30:00Z,update,Drawing,46,37632,,
+evt_002,2023-02-20T14:15:00Z,create,RFI,47,37632,,
+evt_003,2023-03-10T09:45:00Z,update,Submittal,48,37624,,
+evt_004,2025-06-25T16:20:00Z,delete,Meeting,151761,37632,,
+evt_005,2025-06-26T11:00:00Z,update,Specification,151870,37624,,
+evt_006,2025-06-23T08:30:00Z,create,Drawing,151181,37632,,

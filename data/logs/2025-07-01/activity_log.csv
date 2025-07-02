@@ -1,0 +1,4 @@
+event_id,timestamp,event_type,resource_name,user_id,project_id,source_user_id,source_project_id
+evt_007,2025-06-30T12:45:00Z,update,RFI,151761,37632,,
+evt_008,2025-07-01T08:30:00Z,create,Drawing,151181,37632,,
+evt_009,2025-07-01T14:15:00Z,update,Submittal,151870,37624,,
