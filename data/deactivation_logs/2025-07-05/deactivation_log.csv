@@ -1,0 +1,3 @@
+first_name,last_name,email_address,vendor_name,project_name,last_activity_date,deactivation_status,error_message
+Test,Subcontractor,sandbox+sub@procore.com,Subcontracting TEST Company,Sandbox Test Project,2024-01-10 12:00:00+00:00,dry_run,Dry run - no actual deactivation
+Test,Architect,sandbox+arch@procore.com,Architect TEST Company,,,dry_run,Dry run - no actual deactivation

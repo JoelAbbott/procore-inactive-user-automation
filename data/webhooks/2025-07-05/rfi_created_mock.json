@@ -1,0 +1,16 @@
+{
+    "id": "mock_rfi_001",
+    "timestamp": "2024-01-01T12:00:00Z",
+    "event": "rfi.created",
+    "object_type": "RFI",
+    "user": {
+      "id": 151761,
+      "name": "Dev Dev"
+    },
+    "project": {
+      "id": 37624,
+      "name": "Standard Project Template"
+    },
+    "resource_id": 90001,
+    "payload_version": "v4.0"
+  }

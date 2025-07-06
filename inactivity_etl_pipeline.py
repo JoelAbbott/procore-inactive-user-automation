@@ -179,16 +179,12 @@ def fetch_projects_metadata(oauth_manager: OAuthManager, headers: dict) -> dict:
 
 
 def load_activity_logs() -> pd.DataFrame:
-    """
-    Loads all available activity log CSV files into a single Pandas DataFrame.
-    It expects CSVs named 'activity_log_YYYY-MM-DD.csv' directly in the LOGS_BASE directory.
-    Ensures 'user_id' and 'project_id' columns are treated as strings for consistency.
-    """
+    """Load all available activity log CSV files from daily folders."""
     all_data = []
     total_files = 0
     processed_files = 0
     error_files = 0
-
+    
     if not Path(LOGS_BASE).exists():
         logger.warning(f"Activity logs directory {LOGS_BASE} does not exist.")
         return pd.DataFrame()
@@ -199,6 +195,7 @@ def load_activity_logs() -> pd.DataFrame:
         total_files += 1
         try:
             df = pd.read_csv(log_file)
+            print(f"DEBUG: Read {len(df)} rows from {log_file.name} before filtering for user/project_id strings.") # DEBUG PRINT
             if not df.empty:
                 # Ensure 'user_id' and 'project_id' columns are strings for reliable merging
                 if 'user_id' in df.columns:
@@ -221,13 +218,14 @@ def load_activity_logs() -> pd.DataFrame:
         return pd.DataFrame()
 
     combined_df = pd.concat(all_data, ignore_index=True)
+    print(f"DEBUG: Combined DataFrame has {len(combined_df)} rows before timestamp processing.") # DEBUG PRINT
     
     # Convert 'timestamp' to datetime objects for time-based calculations
     if 'timestamp' in combined_df.columns:
         combined_df['timestamp'] = pd.to_datetime(combined_df['timestamp'], errors='coerce', utc=True)
-        # Drop rows where timestamp conversion failed
-        combined_df.dropna(subset=['timestamp'], inplace=True)
+        # combined_df.dropna(subset=['timestamp'], inplace=True) # <-- REMOVE THIS LINE
         
+    print(f"DEBUG: Combined DataFrame has {len(combined_df)} rows after timestamp processing (without dropping NaT).") # DEBUG PRINT
     logger.info(f"Successfully loaded {processed_files}/{total_files} activity log files. Total records: {len(combined_df)}")
     return combined_df
 

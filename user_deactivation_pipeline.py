@@ -3,8 +3,7 @@ import csv
 import time
 import random
 import logging
-import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone # <-- CRITICAL: THIS IMPORT IS NECESSARY
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from requests.exceptions import RequestException
@@ -12,6 +11,7 @@ from dotenv import load_dotenv
 from oauth_manager import OAuthManager, OAuthTokenError
 from audit_logging import log_error, log_audit, log_operation_summary
 import json
+import requests # Ensure requests is imported as well, just in case
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent / '.env'
@@ -34,7 +34,7 @@ BACKOFF_BASE = 1  # seconds
 MAX_PAGE_SIZE = 300  # API limit
 
 # Paths
-REPORTS_FILE = Path("./data/reports/inactive_users_report.csv")
+REPORTS_FILE = Path("./data/intermediate/inactive_users_raw.csv") # FIXED: Corrected path
 DEACTIVATION_LOGS_BASE = Path("./data/deactivation_logs")
 USERS_CACHE = Path("./data/intermediate/users_cache.json")
 PROJECTS_CACHE = Path("./data/intermediate/projects_cache.json")
@@ -67,7 +67,8 @@ class UserDeactivationPipeline:
         try:
             with open(REPORTS_FILE, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
-                users = [row for row in reader if row.get('status') == 'Inactive > 12 months']
+                # FIXED: Filter for status 'Inactive' or 'Never Logged In'
+                users = [row for row in reader if row.get('status') in ['Inactive', 'Never Logged In']]
             
             logger.info(f"Loaded {len(users)} inactive users from report.")
             log_audit(self.module, "Load Inactive Users", record_count=len(users))
@@ -129,6 +130,11 @@ class UserDeactivationPipeline:
         # Use the people endpoint with the correct person_id
         body = {"person": {"active": False}}
         url = f"{PROCORE_BASE_URL}/rest/v1.0/companies/{self.company_id}/people/{person_id}"
+
+        # Check for DRY_RUN_MODE
+        if os.getenv('DRY_RUN_MODE', 'true').lower() == 'true':
+            logger.info(f"[DRY RUN] Would PATCH (deactivate) user: {user_id} (person_id: {person_id}) at {url}")
+            return {"status": "dry_run", "error_message": "Dry run - no actual deactivation"}
 
         for attempt in range(1, MAX_RETRIES + 1):
             try:
@@ -194,29 +200,48 @@ class UserDeactivationPipeline:
                 
                 for result in deactivation_results:
                     user_id = result.get('user_id', '')
-                    user = users_cache.get(str(user_id), {})
+                    user = users_cache.get(str(user_id), {}) # Ensure user_id is string for cache lookup
                     
                     # Extract user information safely
                     first_name = user.get('first_name', '')
                     last_name = user.get('last_name', '')
                     email_address = user.get('email_address', '')
-                    vendor_name = ''
-                    if user.get('vendor') and isinstance(user['vendor'], dict):
-                        vendor_name = user['vendor'].get('name', '')
+                    
+                    # Corrected vendor_name extraction: directly from 'vendor_name' key in user cache
+                    vendor_name = user.get('vendor_name', '') # FIXED: Correct way to get vendor_name from cache
                     
                     # Extract project information safely
-                    project_id = result.get('project_id', '')
+                    project_id = result.get('project_id', '') # Can be float like 37632.0 from CSV
                     project_name = ''
-                    if project_id and str(project_id) in projects_cache:
-                        project = projects_cache[str(project_id)]
-                        project_name = project.get('name', '') if isinstance(project, dict) else ''
+                    # Corrected project_name extraction: ensure project_id string format matches cache keys
+                    if project_id: # Only proceed if project_id is not empty
+                        # Convert number-like ID (float or string like "37632.0") to int, then to string "37632" for cache lookup
+                        try:
+                            project_id_int = int(float(project_id)) # Handles both "37632.0" (string) and 37632.0 (float)
+                            project_id_str = str(project_id_int) 
+                        except ValueError: # If it's not a valid number (e.g., empty string or non-numeric), keep as is.
+                            project_id_str = str(project_id) 
+                        
+                        # Add DEBUG prints for project_name issue
+                        print(f"DEBUG DEACT: Processing user_id: {user_id}, project_id: '{project_id}' (type: {type(project_id)})") # DEBUG
+                        print(f"DEBUG DEACT: Converted project_id_str: '{project_id_str}'") # DEBUG
+                        # print(f"DEBUG DEACT: projects_cache keys (sample): {list(projects_cache.keys())[:5]}...") # Uncomment for more verbose cache keys
+
+                        if project_id_str in projects_cache: # Lookup using the corrected string
+                            project = projects_cache[project_id_str]
+                            project_name = project.get('name', '') if isinstance(project, dict) else ''
+                            print(f"DEBUG DEACT: Found project_name: '{project_name}'") # DEBUG
+                        else:
+                            print(f"DEBUG DEACT: project_id_str '{project_id_str}' NOT IN projects_cache.") # DEBUG
+                    else:
+                        print(f"DEBUG DEACT: project_id is empty from report for user {user_id}.") # DEBUG
                     
                     writer.writerow({
                         'first_name': first_name,
                         'last_name': last_name,
                         'email_address': email_address,
-                        'vendor_name': vendor_name,
-                        'project_name': project_name,
+                        'vendor_name': vendor_name, # Use the corrected vendor_name
+                        'project_name': project_name, # Use the corrected project_name
                         'last_activity_date': result.get('last_activity_date', ''),
                         'deactivation_status': result.get('deactivation_status', ''),
                         'error_message': result.get('error_message', '')

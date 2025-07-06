@@ -5,6 +5,7 @@ from pathlib import Path
 from flask import Flask, request, jsonify
 import logging
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent / '.env'
@@ -54,7 +55,7 @@ def procore_webhook():
         event_id = f"noid_{datetime.utcnow().strftime('%H%M%S%f')}"
 
     # Automatically organizes activity by date - todays activity goes in todays folder
-    date_str = datetime.utcnow().strftime('%Y-%m-%d')   # Like "2025-06-30"
+    date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')   # Like "2025-07-05"
     daily_folder = Path(WEBHOOK_STORAGE_PATH) / date_str
     try:
         daily_folder.mkdir(parents=True, exist_ok=True)

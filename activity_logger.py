@@ -16,21 +16,28 @@ if not logger.hasHandlers():
 
 # Define the mapping between desired CSV column names and their corresponding JSON paths
 # Updated to handle various webhook payload structures
-FIELD_MAP = [
-    ("event_id", ("id",)),
-    ("timestamp", ("occurred_at",)),
-    ("event_type", ("event",)),
-    ("resource_name", ("object_type",)),
-    ("user_id", ("user", "id")),  # Try nested user object first
-    ("user_id", ("details", "user_id")),  # Fallback to details.user_id
-    ("user_id", ("metadata", "performer_id")),  # Another fallback
-    ("project_id", ("project", "id")),  # Try nested project object first
-    ("project_id", ("details", "project_id")),  # Fallback to details.project_id
-    ("project_id", ("metadata", "project_id")),  # Another fallback
-    ("project_id", ("resource_id",)),  # Sometimes project_id is stored as resource_id
-    ("source_user_id", ("metadata", "source_user_id")),
-    ("source_project_id", ("metadata", "source_project_id")),
-]
+# FIXED: Group all alternative paths for each field together
+FIELD_MAP = {
+    "event_id": [
+        ("id",),
+        ("event_id",)
+    ],
+    "timestamp": [
+        ("occurred_at",),
+        ("created_at",),
+        ("timestamp",)
+    ],
+    "event_type": [
+        ("event",),
+        ("event_type",),
+        ("reason",)
+    ],
+    "resource_name": [
+        ("object_type",),
+        ("resource_name",),
+        ("resource_type",)
+    ]
+}
 
 # Create a list of column names for the CSV output
 CSV_COLUMNS = ["event_id", "timestamp", "event_type", "resource_name", "user_id", "project_id", "source_user_id", "source_project_id"]
@@ -43,19 +50,20 @@ LOGS_BASE = Path("./data/logs")
 def extract_field_multiple_paths(payload, paths):
     """
     Try multiple paths to extract a field from the payload.
-    This handles different webhook structures from Procore.
+    Returns the first found non-None, non-empty string value.
     """
     for path in paths:
         value = extract_field(payload, path)
-        if value and value != '':
-            return value
+        if value is not None and str(value) != '':
+            return str(value)
     return ''
 
 
 def extract_field(payload, path):
     """
     Safely extracts a nested field from a dictionary (webhook payload).
-    Returns an empty string if any part of the path is missing or if the value is None.
+    Returns None if any part of the path is missing or if the value is None.
+    Returns the value as is (can be int, str, etc.) otherwise.
     """
     try:
         value = payload
@@ -63,39 +71,47 @@ def extract_field(payload, path):
             if isinstance(value, dict):
                 value = value.get(key)
             else:
-                return ''
+                return None
             if value is None:
-                return ''
-        return str(value) if value is not None else ''
+                return None
+        return value
     except Exception as e:
         logger.debug(f"Failed to extract field with path {path}: {e}")
-        return ''
+        return None
 
 
 def extract_user_and_project_from_resource(payload):
     """
     Special extraction logic for user and project IDs based on resource type.
     Some webhooks store IDs differently based on the resource being modified.
+    This updated function ensures that for 'Company Users' webhooks, the 'resource_id'
+    is correctly recognized as the user_id of the affected user.
     """
-    user_id = ''
-    project_id = ''
+    user_id_from_resource = ''
+    project_id_from_resource = ''
     
-    # Get resource type
-    resource_type = payload.get('object_type', '').lower()
+    # Get resource type from payload (use 'resource_type' or 'object_type')
+    resource_type_payload = payload.get('resource_type', payload.get('object_type', '')).lower()
     
-    # For user-related events, the resource_id might be the user_id
-    if 'user' in resource_type and payload.get('resource_id'):
-        user_id = str(payload['resource_id'])
+    # For user-related events, the resource_id might be the user_id (the affected user)
+    if 'user' in resource_type_payload and payload.get('resource_id'):
+        user_id_from_resource = str(payload['resource_id'])
     
-    # For project-related events, extract from the resource
+    # For project-related events, extract from the resource object or details
     if payload.get('resource') and isinstance(payload['resource'], dict):
-        # Try to get project_id from resource
-        project_id = str(payload['resource'].get('project_id', '')) if payload['resource'].get('project_id') else ''
-        # Try to get user_id from resource if not already found
-        if not user_id and payload['resource'].get('created_by_id'):
-            user_id = str(payload['resource']['created_by_id'])
+        project_id_from_resource = str(payload['resource'].get('project_id', ''))
+        # If user_id not found yet and created_by_id exists in resource
+        if not user_id_from_resource and payload['resource'].get('created_by_id'):
+            user_id_from_resource = str(payload['resource']['created_by_id'])
     
-    return user_id, project_id
+    # Fallback for 'details' key if 'resource' not present (e.g., in v4.0 Company Users events)
+    if 'details' in payload and isinstance(payload['details'], dict):
+        if not user_id_from_resource and payload['details'].get('user_id'):
+            user_id_from_resource = str(payload['details']['user_id']) # This is the performer
+        if not project_id_from_resource and payload['details'].get('project_id'):
+            project_id_from_resource = str(payload['details']['project_id'])
+            
+    return user_id_from_resource, project_id_from_resource
 
 
 def process_webhook_day(date_str: str):
@@ -119,51 +135,74 @@ def process_webhook_day(date_str: str):
         try:
             with open(json_file, 'r', encoding='utf-8') as f:
                 payload = json.load(f)
-            
-            # Extract standard fields
+
+            # --- DIAGNOSTIC PRINT 1: Raw Payload ---
+            print(f"\n--- Processing file: {json_file.name} ---")
+            print(f"RAW PAYLOAD: {json.dumps(payload, indent=2)}")
+
+            # Initialize row
             row = {}
-            row['event_id'] = extract_field(payload, ("id",)) or f"evt_{json_file.stem}"
-            row['timestamp'] = extract_field(payload, ("occurred_at",)) or extract_field(payload, ("created_at",))
-            row['event_type'] = extract_field(payload, ("event",)) or extract_field(payload, ("event_type",))
-            row['resource_name'] = extract_field(payload, ("object_type",)) or extract_field(payload, ("resource_name",))
+
+            # FIXED: Use FIELD_MAP correctly for standard field extraction
+            for col_name in ["event_id", "timestamp", "event_type", "resource_name"]:
+                if col_name in FIELD_MAP:
+                    paths = FIELD_MAP[col_name]
+                    extracted_value = extract_field_multiple_paths(payload, paths)
+                    row[col_name] = extracted_value
             
-            # Extract user_id - try multiple paths
-            user_paths = [
-                ("user", "id"),
-                ("details", "user_id"),
-                ("metadata", "performer_id"),
-                ("created_by", "id"),
-                ("performer", "id")
-            ]
-            row['user_id'] = extract_field_multiple_paths(payload, user_paths)
+            # --- Dedicated User/Project ID Logic for robustness ---
+            # This block handles user_id, project_id, source_user_id, source_project_id
+            # This logic comes *after* the FIELD_MAP loop populates the other fields.
+
+            # Prioritize resource_id as user_id for 'Company Users' events (affected user)
+            resource_type_payload = payload.get('resource_type', payload.get('object_type', '')).lower()
+            if 'user' in resource_type_payload and payload.get('resource_id'):
+                row['user_id'] = str(payload['resource_id']) # Affected user
+                # Performer might be in 'user_id' field of payload (the actor)
+                row['source_user_id'] = str(payload.get('user_id', '')) # The user who performed the action
+                if row['source_user_id'] == row['user_id']: # If actor is the same as affected, clear source_user_id
+                    row['source_user_id'] = ''
+            else:
+                # For other event types, try to get user_id from common paths or resource
+                user_paths_main = [
+                    ("user", "id"),
+                    ("details", "user_id"),
+                    ("metadata", "performer_id"),
+                    ("created_by", "id"),
+                    ("performer", "id")
+                ]
+                row['user_id'] = extract_field_multiple_paths(payload, user_paths_main)
             
-            # Extract project_id - try multiple paths
-            project_paths = [
+            # Project ID (prioritize specific fields, then general resource extraction)
+            project_paths_main = [
                 ("project", "id"),
                 ("details", "project_id"),
                 ("metadata", "project_id"),
-                ("resource", "project_id"),
-                ("resource_id",)  # Sometimes this is the project_id
+                ("resource", "project_id")
             ]
-            row['project_id'] = extract_field_multiple_paths(payload, project_paths)
+            row['project_id'] = extract_field_multiple_paths(payload, project_paths_main)
             
-            # If still no IDs found, try resource-based extraction
-            if not row['user_id'] or not row['project_id']:
-                resource_user_id, resource_project_id = extract_user_and_project_from_resource(payload)
-                if not row['user_id'] and resource_user_id:
-                    row['user_id'] = resource_user_id
-                if not row['project_id'] and resource_project_id:
-                    row['project_id'] = resource_project_id
+            # If project_id is still not found, try resource_id if resource_type is project related
+            if not row['project_id'] and 'project' in resource_type_payload and 'resource_id' in payload:
+                row['project_id'] = str(payload['resource_id'])
             
-            # Extract source IDs
-            row['source_user_id'] = extract_field(payload, ("metadata", "source_user_id"))
-            row['source_project_id'] = extract_field(payload, ("metadata", "source_project_id"))
+            # Source Project ID (for transfer events etc.)
+            source_project_paths = [("metadata", "source_project_id")]
+            row['source_project_id'] = extract_field_multiple_paths(payload, source_project_paths)
             
-            # Log what we found for debugging
+            # Default empty strings for missing fields
+            for col in CSV_COLUMNS:
+                if col not in row:
+                    row[col] = ''
+            
+            # --- DIAGNOSTIC PRINT 2: Final Row before Append ---
+            print(f"FINAL PROCESSED ROW: {row}")
+
+            # Log what we found for debugging (keep as is)
             if row['user_id'] or row['project_id']:
                 logger.debug(f"Extracted from {json_file.name}: user_id={row['user_id']}, project_id={row['project_id']}")
             else:
-                logger.warning(f"No IDs found in {json_file.name}: {json.dumps(payload, indent=2)[:500]}...")
+                logger.warning(f"No primary IDs found in {json_file.name}: {json.dumps(payload, indent=2)[:500]}...")
             
             rows.append(row)
             
@@ -178,11 +217,20 @@ def process_webhook_day(date_str: str):
         logger.info(f"No valid webhook events found for {date_str}. No CSV created.")
         return
 
+    # --- DIAGNOSTIC PRINT 3: Inspect the 'rows' list before writing ---
+    print(f"\n--- WRITING CSV: Inspecting {len(rows)} rows for {date_str} ---")
+    for i, row_data in enumerate(rows):
+        if i < 5 or i > len(rows) - 5: # Print first/last few rows to avoid excessive console output
+            print(f"  Row {i} (Before Write): {row_data}")
+        elif i == 5 and len(rows) > 10:
+            print("  ... (many intermediate rows omitted) ...")
+
     try:
         with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=CSV_COLUMNS)
             writer.writeheader()
             writer.writerows(rows)
+            csvfile.flush()
         logger.info(f"Successfully wrote {len(rows)} events to {csv_path}")
     except Exception as e:
         logger.error(f"Failed to write CSV log {csv_path}: {e}")
@@ -211,5 +259,5 @@ def process_all_days():
 
 
 if __name__ == "__main__":
-    # Process all existing webhook directories
+    print("--- ACTIVITY LOGGER SCRIPT (WITH FIXES) IS RUNNING ---")
     process_all_days()

@@ -21,6 +21,9 @@ if not logger.hasHandlers():
 
 # Configuration
 COMPANY_EMAIL_DOMAIN = os.getenv('COMPANY_EMAIL_DOMAIN', 'compassdatacenters.com').lower()
+# NEW: Define common public email domains to flag as 'non-company'
+PUBLIC_EMAIL_DOMAINS = [d.strip().lower() for d in os.getenv('PUBLIC_EMAIL_DOMAINS', '').split(',') if d.strip()]
+
 USERS_CACHE_PATH = Path('./data/intermediate/users_cache.json')
 ACTIVITY_LOGS_DIR = Path('./data/logs')
 OUTPUT_PATH = Path('./data/reports/non_company_email_users_report.csv')
@@ -71,19 +74,24 @@ def load_user_activity():
 
 
 def identify_non_company_email_users(users_cache, user_activity):
-    """Identify users with non-company email addresses."""
+    """
+    Identify users with non-company email addresses based on new definition:
+    Email is NOT COMPANY_EMAIL_DOMAIN AND its domain IS in PUBLIC_EMAIL_DOMAINS.
+    """
     non_company_users = []
     
     for user_id, user_data in users_cache.items():
         email = user_data.get('email_address', '').lower()
         
-        # Skip if no email
-        if not email:
+        # Skip if no email or if email is internal company domain
+        if not email or email.endswith(f'@{COMPANY_EMAIL_DOMAIN}'):
             continue
         
-        # Check if email domain matches company domain
-        if not email.endswith(f'@{COMPANY_EMAIL_DOMAIN}'):
-            # Get last activity date
+        # Extract email domain
+        email_domain = email.split('@')[-1]
+        
+        # ONLY flag if the email domain is in our list of known public domains
+        if email_domain in PUBLIC_EMAIL_DOMAINS:
             last_active = user_activity.get(user_id, '')
             
             non_company_users.append({
@@ -159,4 +167,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
