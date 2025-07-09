@@ -1,0 +1,95 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0" version="27.2.0">
+  <diagram name="Page-1" id="vvsaLHtJte8-cXmynJ1F">
+    <mxGraphModel dx="2058" dy="1116" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-1" value="Config" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="70" width="360" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-2" value="- procore_client_id : str&lt;div&gt;- procore_company_id : str&lt;/div&gt;&lt;div&gt;- inactive_threshold_days : int&lt;/div&gt;&lt;div&gt;- users_cache_path : str&lt;/div&gt;&lt;div&gt;- dry_run_mode : bool&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-1">
+          <mxGeometry y="26" width="360" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-3" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-1">
+          <mxGeometry y="130" width="360" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-4" value="// Initializes the OAuth manager with credentials and URLs.&lt;br/&gt;+ __init__()&lt;br/&gt;&lt;br/&gt;// Checks if the current access token is still valid and unexpired.&lt;br/&gt;- _is_token_valid(): bool&lt;br/&gt;&lt;br/&gt;// Requests a new access token from the Procore OAuth server.&lt;br/&gt;- _request_token(): None&lt;br/&gt;&lt;br/&gt;// Retrieves a valid OAuth access token, refreshing if necessary.&lt;br/&gt;+ get_access_token(): str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-1">
+          <mxGeometry y="138" width="360" height="182" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-5" value="OAuthManager" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="610" y="70" width="370" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-6" value="- client_id: str&lt;br/&gt;- client_secret: str&lt;br/&gt;- company_id: str&lt;br/&gt;- base_url: str&lt;br/&gt;- token_url: str&lt;br/&gt;- _access_token: Optional[str]&lt;br/&gt;- _token_expiry: Optional[float]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-5">
+          <mxGeometry y="26" width="370" height="114" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-7" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-5">
+          <mxGeometry y="140" width="370" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-8" value="// Logs detailed error information to a daily error file.&lt;br/&gt;+ log_error(module: str, exception: Exception, context: str)&lt;br/&gt;&lt;br/&gt;// Records high-level operational events to a daily audit log file.&lt;br/&gt;+ log_audit(module: str, operation: str, ...)&lt;br/&gt;&lt;br/&gt;// Logs a summary of an operation with counts for success/failure.&lt;br/&gt;+ log_operation_summary(module: str, operation: str, ...)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-5">
+          <mxGeometry y="148" width="370" height="172" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-9" value="&lt;b&gt;Uses Config for API Details&lt;/b&gt;" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="387" y="170" as="sourcePoint" />
+            <mxPoint x="607" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-10" value="AuditLogger" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="470" width="370" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-11" value="- ERROR_LOGS_BASE: Path&lt;br/&gt;- AUDIT_LOGS_BASE: Path" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-10">
+          <mxGeometry y="26" width="370" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-12" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-10">
+          <mxGeometry y="130" width="370" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-13" value="// Logs detailed error information to a daily error file.&lt;br/&gt;+ log_error(module: str, exception: Exception, context: str)&lt;br/&gt;&lt;br/&gt;// Records high-level operational events to a daily audit log file.&lt;br/&gt;+ log_audit(module: str, operation: str, ...)&lt;br/&gt;&lt;br/&gt;// Logs a summary of an operation with counts for success/failure.&lt;br/&gt;+ log_operation_summary(module: str, operation: str, ...)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-10">
+          <mxGeometry y="138" width="370" height="152" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-14" value="UserDeactivationPipeline" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="610" y="470" width="470" height="580" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-15" value="- oauth_manager: OAuthManager&lt;br/&gt;- company_id: str&lt;br/&gt;- today: str&lt;br/&gt;- deactivation_log_dir: Path&lt;br/&gt;- deactivation_log_file: Path&lt;br/&gt;- module: str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-14">
+          <mxGeometry y="26" width="470" height="114" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-16" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-14">
+          <mxGeometry y="140" width="470" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-17" value="// Initializes the pipeline, setting up OAuth and log paths.&lt;br/&gt;+ __init__()&lt;br/&gt;&lt;br/&gt;// Loads inactive user data from the generated report file.&lt;br/&gt;+ load_inactive_users(): List[Dict]&lt;br/&gt;&lt;br/&gt;// Checks if a given user ID belongs to a DMSA user.&lt;br/&gt;+ is_dmsa_user(user_id: str): bool&lt;br/&gt;&lt;br/&gt;// Fetches detailed user information from Procore API to get person_id.&lt;br/&gt;+ fetch_user_details(user_id: str, headers: Dict): Optional[Dict]&lt;br/&gt;&lt;br/&gt;// Attempts to deactivate a user via API, including retry logic.&lt;br/&gt;+ deactivate_user_with_retry(user_id: str, person_id: str): Dict&lt;br/&gt;&lt;br/&gt;// Writes deactivation results to a daily CSV log file.&lt;br/&gt;+ write_deactivation_log(results: List[Dict], users_cache: Dict, projects_cache: Dict)&lt;br/&gt;&lt;br/&gt;// Loads user metadata from cache or fetches from Procore API.&lt;br/&gt;+ fetch_users_metadata(headers: Dict): Dict&lt;br/&gt;&lt;br/&gt;// Loads project metadata from cache or fetches from Procore API.&lt;br/&gt;+ fetch_projects_metadata(headers: Dict): Dict&lt;br/&gt;&lt;br/&gt;// Executes the entire user deactivation workflow.&lt;br/&gt;+ run_deactivation_pipeline(): None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-14">
+          <mxGeometry y="148" width="470" height="432" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-18" value="" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;exitX=0.51;exitY=1.012;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.409;entryY=-0.007;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="oIPAep0BS6i-20tTc7Sq-8" target="oIPAep0BS6i-20tTc7Sq-14">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="720" y="380" as="sourcePoint" />
+            <mxPoint x="880" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-20" value="&lt;b&gt;Logs Events&lt;/b&gt;" style="endArrow=open;endSize=12;dashed=1;html=1;rounded=0;entryX=1.018;entryY=-0.073;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" target="oIPAep0BS6i-20tTc7Sq-13">
+          <mxGeometry x="0.0032" width="160" relative="1" as="geometry">
+            <mxPoint x="600" y="600" as="sourcePoint" />
+            <mxPoint x="420" y="600" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-21" value="WebhookSubscriptionManager" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="70" width="360" height="360" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-22" value="- oauth_manager: OAuthManager&lt;br/&gt;- company_id: str&lt;br/&gt;- delivery_url: str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-21">
+          <mxGeometry y="26" width="360" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-23" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=inherit;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-21">
+          <mxGeometry y="110" width="360" height="8" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-24" value="// Initializes the manager, setting up OAuth and URLs.&lt;br/&gt;+ __init__()&lt;br/&gt;&lt;br/&gt;// Executes HTTP requests to Procore API with retry logic.&lt;br/&gt;- _request_with_retry(method: str, url: str, ...)&lt;br/&gt;&lt;br/&gt;// Creates a new webhook hook on the Procore platform.&lt;br/&gt;+ create_hook(): str&lt;br/&gt;&lt;br/&gt;// Creates a new webhook trigger for a specific event type.&lt;br/&gt;+ create_trigger(hook_id: str, event_type: str): str&lt;br/&gt;&lt;br/&gt;// Sets up all necessary user-related webhook subscriptions.&lt;br/&gt;+ setup_user_webhook_subscriptions(): None" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" vertex="1" parent="oIPAep0BS6i-20tTc7Sq-21">
+          <mxGeometry y="118" width="360" height="242" as="geometry" />
+        </mxCell>
+        <mxCell id="oIPAep0BS6i-20tTc7Sq-25" value="" style="endArrow=diamondThin;endFill=1;endSize=24;html=1;rounded=0;entryX=-0.02;entryY=0.865;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" target="oIPAep0BS6i-20tTc7Sq-22">
+          <mxGeometry width="160" relative="1" as="geometry">
+            <mxPoint x="980" y="170" as="sourcePoint" />
+            <mxPoint x="1140" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
