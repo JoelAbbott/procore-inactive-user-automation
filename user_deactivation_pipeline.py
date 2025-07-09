@@ -89,7 +89,7 @@ class UserDeactivationPipeline:
         """
         try:
             # First try to get user details from /users endpoint
-            url = f"{PROCORE_BASE_URL}/rest/v1.0/users/{user_id}"
+            url = f"{PROCORE_BASE_URL}/rest/v1.1/users/{user_id}"
             params = {'company_id': self.company_id}
             
             response = requests.get(url, headers=headers, params=params, timeout=30)
@@ -115,10 +115,9 @@ class UserDeactivationPipeline:
             log_error(self.module, e, f"Fetching user details for {user_id}")
             return None
 
-    def deactivate_user_with_retry(self, user_id: str, person_id: str) -> Dict[str, Any]:
+    def deactivate_user_with_retry(self, user_id: str) -> Dict[str, Any]: # Removed person_id from signature
         """
-        Deactivate user with retry logic using the correct person_id.
-        Fixed to use proper endpoint and ID mapping.
+        Deactivate user with retry logic using the user_id directly with the /users endpoint.
         """
         access_token = self.oauth_manager.get_access_token()
         headers = {
@@ -127,13 +126,13 @@ class UserDeactivationPipeline:
             "Procore-Company-Id": str(self.company_id)
         }
         
-        # Use the people endpoint with the correct person_id
-        body = {"person": {"active": False}}
-        url = f"{PROCORE_BASE_URL}/rest/v1.0/companies/{self.company_id}/people/{person_id}"
+        # Use the /users endpoint (v1.3) directly with user_id
+        body = {"user": {"is_active": False}} # Correct body structure for /users endpoint
+        url = f"{PROCORE_BASE_URL}/rest/v1.3/companies/{self.company_id}/users/{user_id}" # Correct URL and API version
 
         # Check for DRY_RUN_MODE
         if os.getenv('DRY_RUN_MODE', 'true').lower() == 'true':
-            logger.info(f"[DRY RUN] Would PATCH (deactivate) user: {user_id} (person_id: {person_id}) at {url}")
+            logger.info(f"[DRY RUN] Would PATCH (deactivate) user: {user_id} at {url}")
             return {"status": "dry_run", "error_message": "Dry run - no actual deactivation"}
 
         for attempt in range(1, MAX_RETRIES + 1):
@@ -141,23 +140,25 @@ class UserDeactivationPipeline:
                 response = requests.patch(url, headers=headers, json=body, timeout=30)
 
                 if response.status_code == 200:
-                    logger.info(f"Successfully deactivated user {user_id} (person_id: {person_id})")
+                    logger.info(f"Successfully deactivated user {user_id}") # Removed person_id from log
                     return {"status": "success", "error_message": ""}
                     
-                elif response.status_code == 404:
-                    logger.info(f"User {user_id} not found or already inactive (404)")
-                    return {"status": "already_inactive", "error_message": "User not found (404)"}
-                    
+                # Procore's API for /users/ might return 400 for already inactive rather than 404
+                # We need to test this
                 elif response.status_code == 400:
-                    # Check if user is already inactive
                     response_text = response.text.lower()
                     if "already" in response_text and "inactive" in response_text:
-                        logger.info(f"User {user_id} already inactive")
-                        return {"status": "already_inactive", "error_message": "Already inactive"}
+                        logger.info(f"User {user_id} already inactive (400 response)")
+                        return {"status": "already_inactive", "error_message": "Already inactive (400)"}
                     else:
                         logger.error(f"Bad request deactivating user {user_id}: {response.text}")
                         return {"status": "error", "error_message": f"HTTP 400: {response.text}"}
-                        
+                
+                # If 404 is still returned, it indicates user not found, not necessarily 'already inactive' on /users endpoint
+                elif response.status_code == 404:
+                    logger.error(f"User {user_id} not found at {url} (404)")
+                    return {"status": "error", "error_message": f"User not found (404) at {url}"}
+
                 elif response.status_code in (429, 500, 502, 503, 504):
                     logger.warning(f"Transient error deactivating user {user_id}: {response.status_code}. Retrying (attempt {attempt}/{MAX_RETRIES})...")
                     
@@ -423,8 +424,8 @@ class UserDeactivationPipeline:
                     continue
 
                 # Step 5b: Attempt deactivation
-                logger.info(f"Deactivating user {user_id} (person_id: {person_id})")
-                result = self.deactivate_user_with_retry(user_id, person_id)
+                logger.info(f"Deactivating user {user_id}") # Simplified log as person_id is internal to fetch now
+                result = self.deactivate_user_with_retry(user_id) # <-- Pass only user_id
                 
                 # Count results
                 if result['status'] == 'success':

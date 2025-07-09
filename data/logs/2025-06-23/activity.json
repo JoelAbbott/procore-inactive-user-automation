@@ -1,8 +1,0 @@
-[
-{"user_id": "46", "occurred_at": "2023-01-15T10:30:00Z", "event_type": "update", "object_type": "Drawing"},
-{"user_id": "47", "occurred_at": "2023-02-20T14:15:00Z", "event_type": "create", "object_type": "RFI"},
-{"user_id": "48", "occurred_at": "2023-03-10T09:45:00Z", "event_type": "update", "object_type": "Submittal"},
-{"user_id": "151761", "occurred_at": "2025-06-25T16:20:00Z", "event_type": "delete", "object_type": "Meeting"},
-{"user_id": "151870", "occurred_at": "2025-06-26T11:00:00Z", "event_type": "update", "object_type": "Specification"},
-{"user_id": "151181", "occurred_at": "2025-06-23T08:30:00Z", "event_type": "create", "object_type": "Drawing"}
-]

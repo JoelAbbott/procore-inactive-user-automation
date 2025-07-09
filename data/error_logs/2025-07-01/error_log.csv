@@ -1,6 +1,0 @@
-timestamp,module,error_type,error_message,context
-2025-07-01 20:27:17 UTC,inactivity_etl_pipeline,ValueError,No valid activity logs found or missing 'user_id' field.,ETL pipeline main
-2025-07-01 20:29:56 UTC,inactivity_etl_pipeline,ValueError,No valid activity logs found or missing 'user_id' field.,ETL pipeline main
-2025-07-01 20:45:46 UTC,inactivity_etl_pipeline,ValueError,No valid activity logs found or missing 'user_id' field.,ETL pipeline main
-2025-07-01 20:46:14 UTC,inactivity_etl_pipeline,ValueError,No valid activity logs found or missing 'user_id' field.,ETL pipeline main
-2025-07-01 20:52:27 UTC,inactivity_etl_pipeline,ValueError,No valid activity logs found or missing 'user_id' field.,ETL pipeline main

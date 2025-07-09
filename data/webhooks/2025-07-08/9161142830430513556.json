@@ -1,0 +1,19 @@
+{
+  "id": 9161142830430513556,
+  "ulid": "01JZNM5S3GYJ208CBNXBPV512D",
+  "timestamp": "2025-07-08T18:18:38.257640Z",
+  "metadata": {
+    "source_user_id": 151870,
+    "source_project_id": 37632,
+    "source_operation_id": null,
+    "source_company_id": 36321,
+    "source_application_id": "7-CjPHmO5C9CCtR6aF_hUvX0RahUwf4GrNTFS5z6ASM"
+  },
+  "user_id": 151870,
+  "company_id": 36321,
+  "project_id": null,
+  "api_version": "v1.0",
+  "event_type": "update",
+  "resource_name": "Company Users",
+  "resource_id": 152430
+}

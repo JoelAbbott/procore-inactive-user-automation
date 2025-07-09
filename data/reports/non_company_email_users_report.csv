@@ -1,5 +1,9 @@
 user_id,first_name,last_name,email_address,vendor_name,created_at,last_active
 151181,PythonTest01,testing,exampletest3@gmail.com,,2025-06-26T13:08:55Z,
-152362,External,Contractor,ext.contractor@gmail.com,,2025-07-05T20:42:57Z,2025-07-05T20:42:57.616869Z
-152365,NewExternal,Consultant,new.ext.user@protonmail.com,,2025-07-05T23:42:22Z,2025-07-05T23:42:23.048113Z
-152366,Public,Vendor,public.vendor@gmail.com,Subcontracting TEST Company,2025-07-05T23:57:13Z,2025-07-05T23:57:14.041761Z
+152362,External,Contractor,ext.contractor@gmail.com,,2025-07-05T20:42:57Z,
+152365,NewExternal,Consultant,new.ext.user@protonmail.com,,2025-07-05T23:42:22Z,
+152366,Public,Vendor,public.vendor@gmail.com,Subcontracting TEST Company,2025-07-05T23:57:13Z,
+152424,TEST USER,FOR DEACTIVATION,deactivateme@gmail.com,Subcontracting TEST Company,2025-07-08T16:38:36Z,
+152428,johnny,Manziel,jmanziel@gmail.com,,2025-07-08T18:17:03Z,
+152429,PythonTest03,testing03,exampletest4@gmail.com,,2025-07-08T18:17:56Z,
+152430,c,c,public.cendor@gmail.com,Subcontracting TEST Company,2025-07-08T18:18:37Z,

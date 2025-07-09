@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from oauth_manager import OAuthManager # Assuming this is available
 from audit_logging import log_error, log_audit, log_operation_summary
+from config import get_config # Add this line
 
 import requests
 import time
@@ -29,9 +30,10 @@ PROJECTS_CACHE = os.path.join(OUTPUT_DIR, 'projects_cache.json') # Cache for Pro
 MODULE = "inactivity_etl_pipeline" # Module name for audit logging
 
 # --- ETL Specific Configuration ---
-MAX_PAGE_SIZE = 300  # Procore API limit for records per page
-INACTIVE_THRESHOLD_DAYS = 365  # Users inactive for this many days are considered inactive (12 months)
-NEVER_LOGGED_IN_THRESHOLD_DAYS = 180  # Users created this many days ago who never logged in
+_config = get_config()
+MAX_PAGE_SIZE = _config.api_max_page_size  # Procore API limit for records per page
+INACTIVE_THRESHOLD_DAYS = _config.inactive_threshold_days  # Users inactive for this many days are considered inactive (12 months)
+NEVER_LOGGED_IN_THRESHOLD_DAYS = _config.never_logged_in_threshold_days  # Users created this many days ago who never logged in
 
 # --- Environment Variable Loading ---
 env_path = Path(__file__).parent / '.env'

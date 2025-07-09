@@ -1,3 +1,5 @@
 user_id,first_name,last_name,email_address,status,inactivity_days,last_activity_date,project_id,last_project_name,created_at
-47,Test,Subcontractor,sandbox+sub@procore.com,Inactive,542.0,2024-01-10 12:00:00+00:00,37632.0,N/A,2021-03-08 00:35:05+00:00
+47,Test,Subcontractor,sandbox+sub@procore.com,Never Logged In,,,,N/A,2021-03-08 00:35:05+00:00
 48,Test,Architect,sandbox+arch@procore.com,Never Logged In,,,,N/A,2021-03-08 00:35:09+00:00
+152366,Public,Vendor,publicvendor@vendor.com,Inactive,366.0,2024-07-07 10:00:00+00:00,37632,Sandbox Test Company,2023-01-01 00:00:00+00:00
+152428,Inactive,User,inactive.user@example.com,Inactive,400.0,2024-06-03 09:00:00+00:00,37624,Standard Project Template,2023-01-01 09:00:00+00:00

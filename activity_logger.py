@@ -154,51 +154,71 @@ def process_webhook_day(date_str: str):
             # This block handles user_id, project_id, source_user_id, source_project_id
             # This logic comes *after* the FIELD_MAP loop populates the other fields.
 
-            # Prioritize resource_id as user_id for 'Company Users' events (affected user)
+            # Initialize all ID fields to empty strings
+            row['user_id'] = ''
+            row['project_id'] = ''
+            row['source_user_id'] = ''
+            row['source_project_id'] = ''
+
+            # Get resource type for logic branching
             resource_type_payload = payload.get('resource_type', payload.get('object_type', '')).lower()
+            
+            # Special handling for 'Company Users' events
             if 'user' in resource_type_payload and payload.get('resource_id'):
-                row['user_id'] = str(payload['resource_id']) # Affected user
-                # Performer might be in 'user_id' field of payload (the actor)
-                row['source_user_id'] = str(payload.get('user_id', '')) # The user who performed the action
-                if row['source_user_id'] == row['user_id']: # If actor is the same as affected, clear source_user_id
-                    row['source_user_id'] = ''
+                # For Company Users events:
+                # - resource_id is the affected user
+                # - user_id in payload is the performer
+                row['user_id'] = str(payload['resource_id'])  # Affected user
+                if payload.get('user_id'):
+                    row['source_user_id'] = str(payload['user_id'])  # Performer
+                    # If performer is same as affected user, clear source_user_id
+                    if row['source_user_id'] == row['user_id']:
+                        row['source_user_id'] = ''
+                
+                # Extract project_id from payload if present
+                if payload.get('project_id'):
+                    row['project_id'] = str(payload['project_id'])
+                
+                # Extract source_project_id from metadata if present
+                if payload.get('metadata') and isinstance(payload['metadata'], dict):
+                    if payload['metadata'].get('source_project_id'):
+                        row['source_project_id'] = str(payload['metadata']['source_project_id'])
+            
             else:
-                # For other event types, try to get user_id from common paths or resource
+                # For other event types, use the general extraction logic
+                # Try to get user_id from common paths
                 user_paths_main = [
                     ("user", "id"),
                     ("details", "user_id"),
                     ("metadata", "performer_id"),
                     ("created_by", "id"),
-                    ("performer", "id")
+                    ("performer", "id"),
+                    ("user_id",)  # Direct user_id field
                 ]
                 row['user_id'] = extract_field_multiple_paths(payload, user_paths_main)
-            
-            # Project ID (prioritize specific fields, then general resource extraction)
-            project_paths_main = [
-                ("project", "id"),
-                ("details", "project_id"),
-                ("metadata", "project_id"),
-                ("resource", "project_id")
-            ]
-            row['project_id'] = extract_field_multiple_paths(payload, project_paths_main)
-            
-            # If project_id is still not found, try resource_id if resource_type is project related
-            if not row['project_id'] and 'project' in resource_type_payload and 'resource_id' in payload:
-                row['project_id'] = str(payload['resource_id'])
-            
-            # Source Project ID (for transfer events etc.)
-            source_project_paths = [("metadata", "source_project_id")]
-            row['source_project_id'] = extract_field_multiple_paths(payload, source_project_paths)
-            
-            # Default empty strings for missing fields
-            for col in CSV_COLUMNS:
-                if col not in row:
-                    row[col] = ''
+                
+                # Try to get project_id from common paths
+                project_paths_main = [
+                    ("project", "id"),
+                    ("details", "project_id"),
+                    ("metadata", "project_id"),
+                    ("resource", "project_id"),
+                    ("project_id",)  # Direct project_id field
+                ]
+                row['project_id'] = extract_field_multiple_paths(payload, project_paths_main)
+                
+                # If project_id is still not found, try resource_id if resource_type is project related
+                if not row['project_id'] and 'project' in resource_type_payload and payload.get('resource_id'):
+                    row['project_id'] = str(payload['resource_id'])
+                
+                # Source Project ID (for transfer events etc.)
+                source_project_paths = [("metadata", "source_project_id")]
+                row['source_project_id'] = extract_field_multiple_paths(payload, source_project_paths)
             
             # --- DIAGNOSTIC PRINT 2: Final Row before Append ---
             print(f"FINAL PROCESSED ROW: {row}")
 
-            # Log what we found for debugging (keep as is)
+            # Log what we found for debugging
             if row['user_id'] or row['project_id']:
                 logger.debug(f"Extracted from {json_file.name}: user_id={row['user_id']}, project_id={row['project_id']}")
             else:

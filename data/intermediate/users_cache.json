@@ -31,14 +31,14 @@
     "first_name": null,
     "last_name": "rfi-pulls-4ef586a6",
     "email_address": "rfi-pulls-4ef586a6@procore.com",
-    "vendor_name": "",
+    "vendor_name": "Procore (Test Companies)",
     "created_at": "2025-06-24T12:52:16Z"
   },
   "151181": {
     "first_name": "PythonTest01",
     "last_name": "testing",
     "email_address": "exampletest3@gmail.com",
-    "vendor_name": "",
+    "vendor_name": "Zobdorul Garzezog",
     "created_at": "2025-06-26T13:08:55Z"
   },
   "152360": {
@@ -59,14 +59,14 @@
     "first_name": "External",
     "last_name": "Contractor",
     "email_address": "ext.contractor@gmail.com",
-    "vendor_name": "",
+    "vendor_name": "Zobdorul Garzezog",
     "created_at": "2025-07-05T20:42:57Z"
   },
   "152363": {
     "first_name": "Dormant",
     "last_name": "User",
     "email_address": "dormant.user@yourcompany.com",
-    "vendor_name": "",
+    "vendor_name": "Subcontracting TEST Company",
     "created_at": "2025-07-05T20:43:35Z"
   },
   "152364": {
@@ -80,7 +80,7 @@
     "first_name": "NewExternal",
     "last_name": "Consultant",
     "email_address": "new.ext.user@protonmail.com",
-    "vendor_name": "",
+    "vendor_name": "Zobdorul Garzezog",
     "created_at": "2025-07-05T23:42:22Z"
   },
   "152366": {
@@ -89,5 +89,33 @@
     "email_address": "public.vendor@gmail.com",
     "vendor_name": "Subcontracting TEST Company",
     "created_at": "2025-07-05T23:57:13Z"
+  },
+  "152424": {
+    "first_name": "TEST USER",
+    "last_name": "FOR DEACTIVATION",
+    "email_address": "deactivateme@gmail.com",
+    "vendor_name": "Subcontracting TEST Company",
+    "created_at": "2025-07-08T16:38:36Z"
+  },
+  "152428": {
+    "first_name": "johnny",
+    "last_name": "Manziel",
+    "email_address": "jmanziel@gmail.com",
+    "vendor_name": "Procore (Test Companies)",
+    "created_at": "2025-07-08T18:17:03Z"
+  },
+  "152429": {
+    "first_name": "PythonTest03",
+    "last_name": "testing03",
+    "email_address": "exampletest4@gmail.com",
+    "vendor_name": "Architect TEST Company",
+    "created_at": "2025-07-08T18:17:56Z"
+  },
+  "152430": {
+    "first_name": "c",
+    "last_name": "c",
+    "email_address": "public.cendor@gmail.com",
+    "vendor_name": "Subcontracting TEST Company",
+    "created_at": "2025-07-08T18:18:37Z"
   }
 }

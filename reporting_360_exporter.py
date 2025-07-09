@@ -20,7 +20,7 @@ if not logger.hasHandlers():
 
 # Constants
 PROCORE_COMPANY_ID = os.getenv('PROCORE_COMPANY_ID')
-INPUT_FILE = Path("./data/reports/inactive_users_report.csv")
+INPUT_FILE = Path("./data/intermediate/inactive_users_raw.csv") # This aligns with ETL output
 OUTPUT_FILE = Path("./data/reports/reporting_360_export.csv")
 
 # Export columns
